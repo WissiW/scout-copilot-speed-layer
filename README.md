@@ -42,7 +42,24 @@ agent-speed retrieve --store ~/.agent-speed-layer/raw --id SHA256_ID
 
 The filter emits JSON with `text`, `changed`, `raw_id`, and `reason`. The filesystem path is intentionally not emitted.
 
-## Copilot hook
+## Evidence-gated completion
+
+The optional evidence core is pure Python and has no dependencies. It prevents an agent's `done` statement from becoming completion status. Only matching observed state plus independent evidence can return `verified`.
+
+```python
+from agent_speed.evidence import verify_completion
+
+decision = verify_completion(
+    required={"tests": "pass"},
+    observed={"tests": "pass"},
+    evidence=[{"kind": "test", "result": True, "id": "tests-123"}],
+    attempts=1,
+    max_attempts=3,
+)
+```
+
+Statuses are `verified`, `needs_verification`, `needs_repair`, or `bounded_failure`. This layer does not execute repairs, approve tools, or create a daemon. A caller owns execution and must enforce its own time, token, cost, and permission budgets.
+
 
 `integrations/copilot-post-tool-use.json` is a reviewed template, not an automatic installer. The hook remains observational until its exact output contract is verified against the installed Copilot CLI version.
 
