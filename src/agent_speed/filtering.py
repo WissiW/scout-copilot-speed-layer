@@ -3,14 +3,21 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
-import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
-READ_ONLY_COMMANDS = {
-    "git status", "git diff --stat", "git log", "git branch", "git remote -v",
-    "pytest", "python -m pytest", "ruff check", "npm test", "cargo test",
+SUPPORTED_EXACT_COMMANDS = {
+    "git status",
+    "git status --short",
+    "git status --porcelain",
+    "git diff --stat",
+    "git branch",
+    "git remote -v",
+    "ruff check",
+    "pytest",
+    "python -m pytest",
+    "npm test",
+    "cargo test",
 }
 PROTECTED_MARKERS = ("traceback", "error", "exception", "failed", "secret", "token", "password", "api_key")
 MAX_INPUT_BYTES = 4 * 1024 * 1024
@@ -29,17 +36,7 @@ def _raw_id(text: str) -> str:
 
 
 def _is_safe_command(command: str) -> bool:
-    try:
-        tokens = shlex.split(command, posix=True)
-    except ValueError:
-        return False
-    if not tokens or any(token in {";", "&&", "||", "|", ">", ">>", "<"} for token in tokens):
-        return False
-    normalized = " ".join(tokens).lower()
-    return normalized in READ_ONLY_COMMANDS or any(
-        normalized.startswith(prefix + " ") and prefix in {"git status", "git log", "git branch", "pytest", "ruff check"}
-        for prefix in READ_ONLY_COMMANDS
-    )
+    return command in SUPPORTED_EXACT_COMMANDS
 
 
 def _protected(text: str) -> bool:
@@ -59,41 +56,48 @@ def _secure_store(store: str | Path) -> Path:
 def _archive_text(store: str | Path, raw_id: str, text: str) -> str:
     root = _secure_store(store)
     path = root / raw_id
+    encoded = text.encode("utf-8")
     if path.exists() and (path.is_symlink() or not path.is_file()):
         raise ValueError("raw archive target is unsafe")
     if not path.exists():
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
         fd = os.open(path, flags, 0o600)
-        try:
-            os.write(fd, text.encode("utf-8"))
-        finally:
-            os.close(fd)
+        with os.fdopen(fd, "wb") as archive:
+            archive.write(encoded)
+    if path.read_bytes() != encoded:
+        raise ValueError("raw archive integrity failure")
     os.chmod(path, 0o600)
     return str(path)
 
 
 def _compact_lines(text: str) -> str:
-    lines = text.splitlines()
+    lines = text.splitlines(keepends=True)
     if len(lines) < 40:
         return text
     output: list[str] = []
     repeated = 0
-    previous = None
+    previous = ""
     for line in lines:
-        normalized = re.sub(r"\s+", " ", line.strip())
-        if normalized and normalized == previous:
+        if line.strip() and line == previous:
             repeated += 1
             continue
         if repeated:
-            output.append(f"[agent-speed: omitted {repeated} repeated lines]")
+            ending = previous[len(previous.rstrip("\r\n")):]
+            if not ending:
+                return text
+            output.append(f"[agent-speed: omitted {repeated} repeated lines]{ending}")
             repeated = 0
         output.append(line)
-        previous = normalized
+        previous = line
     if repeated:
-        output.append(f"[agent-speed: omitted {repeated} repeated lines]")
+        ending = previous[len(previous.rstrip("\r\n")):]
+        if not ending:
+            return text
+        output.append(f"[agent-speed: omitted {repeated} repeated lines]{ending}")
     if len(output) >= len(lines):
         return text
-    return "\n".join(output) + ("\n" if text.endswith("\n") else "")
+    compacted = "".join(output)
+    return compacted if len(compacted) < len(text) else text
 
 
 def filter_output(text: str, command: str = "", store: str | Path | None = None, unsafe: bool = False) -> FilterResult:

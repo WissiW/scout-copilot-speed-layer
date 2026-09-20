@@ -24,6 +24,10 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _read_input_text() -> str:
+    return sys.stdin.buffer.read().decode("utf-8")
+
+
 def main() -> int:
     args = _parser().parse_args()
     if args.action == "retrieve":
@@ -34,13 +38,13 @@ def main() -> int:
         if not path.is_file() or path.is_symlink():
             print(json.dumps({"error": "raw result not found"}))
             return 1
-        content = path.read_text(encoding="utf-8")
-        if hashlib.sha256(content.encode("utf-8")).hexdigest() != args.id:
+        content = path.read_bytes()
+        if hashlib.sha256(content).hexdigest() != args.id:
             print(json.dumps({"error": "raw result integrity failure"}))
             return 2
-        sys.stdout.write(content)
+        sys.stdout.buffer.write(content)
         return 0
-    payload = sys.stdin.read()
+    payload = _read_input_text()
     command = args.command
     text = payload
     if args.event == "copilot-post-tool-use":
@@ -51,5 +55,5 @@ def main() -> int:
         except json.JSONDecodeError:
             pass
     result = filter_output(text, command, args.store, args.unsafe_filter)
-    sys.stdout.write(result_json(result) + "\n")
+    sys.stdout.buffer.write((result_json(result) + "\n").encode("utf-8"))
     return 0

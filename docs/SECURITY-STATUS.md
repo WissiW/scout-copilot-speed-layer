@@ -6,13 +6,14 @@ The first MVP remains deterministic, local, and observational. It does not insta
 
 - Input size limit: 4 MiB.
 - Shell metacharacters fail closed.
-- Archive directories use mode 0700.
-- Archive files use mode 0600.
+- POSIX archive directories use mode 0700 and archive files use mode 0600.
+- On Windows, POSIX mode bits are not an access-control guarantee; Windows ACL validation remains pending.
 - Archive writes reject symlink targets.
 - Raw paths are not emitted in JSON consumed by hooks.
 - Malformed Copilot hook events return safely without replacement output.
 - Unknown, mutating, protected, or oversized inputs remain unchanged.
-- Exact raw retrieval remains available through the local CLI.
+- Exact raw retrieval reads bytes and preserves LF and CRLF content byte-for-byte.
+- Windows PowerShell hook template is provided for review only; it is not registered or installed.
 
 ## Not yet implemented
 

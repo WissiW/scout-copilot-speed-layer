@@ -2,8 +2,11 @@
 
 This first release is deliberately narrow.
 
-- It reduces repeated identical lines only. It does not yet summarize tests, logs, diffs, or search results.
+- Only complete identical lines are reduced, including their whitespace and terminators. Different line endings are not merged, and the final-newline state is preserved.
+- Command classification validates complete supported command arguments and fails closed for shell composition or mutating commands.
+- Full `git diff` remains unchanged; only `git diff --stat` is eligible for reduction.
+- Raw retrieval is byte-exact and verifies the SHA-256 identifier over stored bytes.
 - The Copilot hook is observational. Copilot post-tool hooks do not automatically replace the model context. A future integration must use a verified `additionalContext` or supported host extension contract.
 - The model backend is not included. This keeps installation offline, free, and license-clean.
-- Raw content is stored locally. Users must apply their own retention and access controls.
+- On POSIX, raw content uses restrictive directory and file modes. Windows ACLs are inherited from the archive location; the package does not configure or audit them. Choose a private directory. POSIX mode checks do not prove Windows privacy.
 - The project has no hosted service, telemetry, API key, or paid Jev dependency.
