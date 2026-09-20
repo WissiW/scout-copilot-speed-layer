@@ -2,12 +2,12 @@ import json
 import hashlib
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import pytest
 
 from agent_speed.filtering import filter_output
+CLI = [sys.executable, "-m", "agent_speed.cli"]
 
 
 def test_reduces_repeated_read_only_output(tmp_path: Path) -> None:
@@ -88,16 +88,15 @@ def test_reduction_compares_lines_exactly_and_preserves_mixed_endings(tmp_path: 
 
 def test_cli_retrieve_returns_archived_crlf_bytes(tmp_path: Path) -> None:
     text = "first\r\n" + "repeat\r\n" * 50
-    cli = shutil.which("agent-speed") or str(Path(sys.executable).parent / "agent-speed")
     filtered = subprocess.run(
-        [cli, "filter", "--command", "git status", "--store", str(tmp_path)],
+        CLI + ["filter", "--command", "git status", "--store", str(tmp_path)],
         input=text.encode("utf-8"),
         capture_output=True,
         check=True,
     )
     data = json.loads(filtered.stdout)
     retrieved = subprocess.run(
-        [cli, "retrieve", "--store", str(tmp_path), "--id", data["raw_id"]],
+        CLI + ["retrieve", "--store", str(tmp_path), "--id", data["raw_id"]],
         capture_output=True,
         check=True,
     )
@@ -154,7 +153,6 @@ def test_removed_commands_return_unchanged_with_compaction_sized_input(tmp_path:
 
 
 def test_cli_byte_roundtrip_preserves_line_endings_and_unicode(tmp_path: Path) -> None:
-    cli = shutil.which("agent-speed") or str(Path(sys.executable).parent / "agent-speed")
     cases = (
         ("\u00e9\n" * 40).encode("utf-8"),
         ("\u00e9\r\n" * 40).encode("utf-8"),
@@ -163,7 +161,7 @@ def test_cli_byte_roundtrip_preserves_line_endings_and_unicode(tmp_path: Path) -
     )
     for original in cases:
         filtered = subprocess.run(
-            [cli, "filter", "--command", "git status", "--store", str(tmp_path)],
+            CLI + ["filter", "--command", "git status", "--store", str(tmp_path)],
             input=original,
             capture_output=True,
             check=True,
@@ -172,7 +170,7 @@ def test_cli_byte_roundtrip_preserves_line_endings_and_unicode(tmp_path: Path) -
         assert data["raw_id"] == hashlib.sha256(original).hexdigest()
         assert (tmp_path / data["raw_id"]).read_bytes() == original
         retrieved = subprocess.run(
-            [cli, "retrieve", "--store", str(tmp_path), "--id", data["raw_id"]],
+            CLI + ["retrieve", "--store", str(tmp_path), "--id", data["raw_id"]],
             capture_output=True,
             check=True,
         )
@@ -232,9 +230,8 @@ def test_existing_corrupt_archive_prevents_reduction(tmp_path: Path) -> None:
 def test_cli_retrieve_rejects_modified_archive(tmp_path: Path) -> None:
     result = filter_output("same\n" * 100, "git status", tmp_path)
     Path(result.raw_path).write_bytes(b"modified")
-    cli = shutil.which("agent-speed") or str(Path(sys.executable).parent / "agent-speed")
     retrieved = subprocess.run(
-        [cli, "retrieve", "--store", str(tmp_path), "--id", result.raw_id],
+        CLI + ["retrieve", "--store", str(tmp_path), "--id", result.raw_id],
         capture_output=True,
     )
     assert retrieved.returncode == 2
@@ -246,3 +243,12 @@ def test_small_repeat_runs_do_not_expand_output(tmp_path: Path) -> None:
     result = filter_output(text, "git status", tmp_path)
     assert not result.changed
     assert result.text == text
+
+
+@pytest.mark.parametrize("ending", ["\n", "\r\n", "\r"])
+def test_blank_line_separates_repeat_runs(tmp_path: Path, ending: str) -> None:
+    text = ("same" + ending) * 40 + ending + ("same" + ending) * 40
+    result = filter_output(text, "git status", tmp_path)
+    run = "same" + ending + "[agent-speed: omitted 39 repeated lines]" + ending
+    assert result.changed
+    assert result.text == run + ending + run

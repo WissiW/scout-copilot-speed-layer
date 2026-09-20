@@ -1,4 +1,4 @@
-# Observational Windows hook template for Agent Speed Layer v0.1.1.
+# Observational Windows hook template for Agent Speed Layer v0.1.2.
 # This template logs a diagnostic result. It does not replace host context,
 # approve tools, block tools, or install itself.
 param(
@@ -7,12 +7,16 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$utf8 = New-Object System.Text.UTF8Encoding($false)
+$utf8 = New-Object System.Text.UTF8Encoding($false, $true)
 [Console]::InputEncoding = $utf8
 [Console]::OutputEncoding = $utf8
 $OutputEncoding = $utf8
 $env:AGENT_SPEED_RAW_STORE = $RawStore
-$payload = [Console]::In.ReadToEnd()
+try {
+    $payload = [Console]::In.ReadToEnd()
+} catch [System.Text.DecoderFallbackException] {
+    exit 0
+}
 $payload | & $Python -X utf8 (Join-Path $PSScriptRoot "copilot_filter_hook.py")
 exit $LASTEXITCODE
 

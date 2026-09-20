@@ -1,7 +1,7 @@
 ---
 name: agent-speed-layer
 description: Use when accelerating Scout or GitHub Copilot with safe local tool-output reduction. Preserve raw evidence, avoid paid Jev, and fall back to the original workflow.
-version: 0.1.1
+version: 0.1.2
 author: Agent Speed Layer contributors
 license: MIT
 metadata:

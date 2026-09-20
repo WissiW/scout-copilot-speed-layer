@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test runner only
+        run: python -m pip install "pytest>=8"
+      - name: Require both Windows shells
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Get-Command powershell.exe, pwsh -ErrorAction Stop
+      - name: Test clean source checkout without installing the package
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: python -m pytest -q
+      - name: Source smoke
+        env:
+          PYTHONPATH: ${{ github.workspace }}/src
+        run: python tests/smoke.py
+      - name: Build wheel
+        run: python -m pip wheel . --no-deps --wheel-dir dist
+      - name: Install the wheel without an editable source tree
+        run: python -m pip install --no-index --no-deps --find-links dist agent-speed-layer==0.1.2
+      - name: Exercise installed wheel and console entry point
+        run: python -I tests/wheel_smoke.py

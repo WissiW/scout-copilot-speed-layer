@@ -1,12 +1,14 @@
 from pathlib import Path
 import json
 import subprocess
+import sys
 import tempfile
 
 text = "\n".join(["ok"] * 100) + "\n"
+cli = [sys.executable, "-m", "agent_speed.cli"]
 with tempfile.TemporaryDirectory() as store:
     run = subprocess.run(
-        ["agent-speed", "filter", "--command", "git status --short", "--store", store],
+        cli + ["filter", "--command", "git status --short", "--store", store],
         input=text.encode("utf-8"),
         capture_output=True,
         check=True,
@@ -18,7 +20,7 @@ with tempfile.TemporaryDirectory() as store:
     raw_path = Path(store) / data["raw_id"]
     assert raw_path.read_bytes() == text.encode()
     retrieved = subprocess.run(
-        ["agent-speed", "retrieve", "--store", store, "--id", data["raw_id"]],
+        cli + ["retrieve", "--store", store, "--id", data["raw_id"]],
         capture_output=True,
         check=True,
     )

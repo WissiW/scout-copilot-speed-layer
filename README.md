@@ -2,7 +2,7 @@
 
 A local, open-source sidecar for Scout and GitHub Copilot CLI. It reduces repetitive tool output before it reaches an agent while preserving the raw result for recovery.
 
-## Version 0.1.1: deterministic MVP
+## Version 0.1.2: deterministic MVP
 
 The MVP is deliberately narrow and safe:
 
@@ -50,6 +50,18 @@ The filter emits JSON with `text`, `changed`, `raw_id`, and `reason`. The filesy
 Input and JSON output use UTF-8. Retrieval writes the archived bytes directly;
 use a binary pipe or file consumer if byte-for-byte preservation is required.
 Unknown arguments pass through unchanged rather than guessing whether they are safe.
+Malformed event JSON, non-object events, and invalid UTF-8 produce a JSON error
+and exit code 1 without creating an archive. The observational hook ignores
+malformed input without emitting a host replacement payload.
+
+The CLI is also available as `python -m agent_speed.cli`. There is no unsafe
+filter override: command and protected-content checks always apply.
+
+Use a private local archive directory. POSIX stores must be owned by the current
+user with no group/other access. Windows ACLs are not managed by this package.
+Symlinks, junctions, hard-linked archive files, UNC paths, and unsupported drive
+aliases are not accepted. Unavailable or unsafe archives cause unchanged output,
+not a reduction without recoverable evidence. See `docs/SECURITY-STATUS.md`.
 
 ## Observational hooks
 
@@ -60,6 +72,8 @@ and `-RawStore` to a private local folder. Run it as a separate PowerShell proce
 Neither template rewrites context, approves tools, or blocks tools. They emit
 diagnostic JSON only. Host registration and context replacement remain unverified;
 no token or latency savings are claimed for the hooks.
+The `integrations/` templates are repository-only resources; they are not
+included in the Python wheel. Keep the checkout when using a template.
 
 ## Development
 
@@ -69,6 +83,28 @@ pytest -q
 python tests/smoke.py
 python -m compileall -q src integrations
 ```
+
+Tests do not require an installed `agent-speed` command. For a source-only run,
+install `pytest>=8`, then use `PYTHONPATH=src python -m pytest -q` on POSIX, or
+`$env:PYTHONPATH = "$PWD\src"; python -m pytest -q` in PowerShell.
+
+GitHub Actions defines Linux/Windows jobs for Python 3.10 and 3.14, including
+Windows PowerShell and PowerShell 7 subprocess checks. A separate wheel smoke
+run uses the installed console and module entry points outside the source tree.
+
+## Release notes
+
+**0.1.2:** controlled CLI input errors; a working module entry point;
+source-only subprocess tests; removal of `--unsafe-filter` and the Python
+`unsafe` argument; explicit repository-only hook packaging; cross-platform CI;
+blank-line separation regressions; descriptor-based POSIX archive access and
+locked, validated Windows handles for both storage and retrieval.
+
+**0.1.1:** replaced permissive command prefixes with an exact, case-sensitive
+allowlist. Unknown options, shell composition, mutation commands, and full
+patch output pass through unchanged. Repeated-line reduction preserves complete
+line content and final-newline state. UTF-8 and binary archive I/O fix Windows
+and CRLF recovery. Added the observational Windows hook template.
 
 ## Roadmap
 
