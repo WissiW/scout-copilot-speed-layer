@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "bash",
+        "type": "command",
+        "bash": "python3 /ABSOLUTE/PATH/TO/agent-speed-layer/integrations/copilot_filter_hook.py",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}

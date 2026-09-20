@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-speed-layer"
+version = "0.1.0"
+description = "Safe deterministic tool-output reduction for coding agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Agent Speed Layer contributors"}]
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+agent-speed = "agent_speed.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
